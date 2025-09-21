@@ -1,0 +1,100 @@
+local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/UI-Libraries/Rayfield/main/Source'))()
+
+local Window = Rayfield:CreateWindow({
+   Name = "Gelişmiş Kontrol Paneli",
+   LoadingTitle = "Yükleniyor...",
+   ConfigurationSaving = {
+      Enabled = true,
+      FolderName = "AdvancedScriptConfig",
+      FileName = "Main"
+   }
+})
+
+local MainTab = Window:CreateTab("Tüm Kontroller", nil) 
+
+_G.AutoFarmEnabled = false
+
+MainTab:CreateToggle({
+   Name = "Weight Sistemi",
+   Description = "Ağırlık sistemini açar veya kapatır.",
+   CurrentValue = false,
+   Flag = "WeightSystemToggle",
+   Callback = function(Value)
+      game:GetService("ReplicatedStorage").WeightSystem:FireServer(Value)
+      if Value then print("Weight Sistemi: AÇIK") else print("Weight Sistemi: KAPALI") end
+   end,
+})
+
+MainTab:CreateToggle({
+   Name = "Otomatik Toplama (Spam)",
+   Description = "Açıldığında sürekli en yakın eşyayı toplar. Kapattığında durur.",
+   CurrentValue = false,
+   Flag = "AutoFarmToggle",
+   Callback = function(Value)
+      _G.AutoFarmEnabled = Value
+      if Value then 
+          print("Otomatik Toplama Başlatıldı.")
+      else
+          print("Otomatik Toplama Durduruldu.")
+      end
+   end,
+})
+
+MainTab:CreateButton({
+   Name = "En Yakın Eşyayı Al (Tek Sefer)",
+   Description = "En yakındaki etkileşimi sadece bir kere tetikler.",
+   Callback = function()
+      local Players = game:GetService("Players")
+      local ProximityPromptService = game:GetService("ProximityPromptService")
+      local player = Players.LocalPlayer
+      local character = player.Character
+      if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+      local rootPart, nearestPrompt, shortestDistance = character.HumanoidRootPart, nil, math.huge
+      for i,v in pairs(workspace:GetDescendants()) do
+          if v:IsA("ProximityPrompt") and v.Enabled then
+              local p = v.Parent
+              if p:IsA("BasePart") then
+                  local d = (rootPart.Position - p.Position).Magnitude
+                  if d < shortestDistance and d <= v.MaxActivationDistance then
+                      shortestDistance = d; nearestPrompt = v
+                  end
+              end
+          end
+      end
+      if nearestPrompt then
+          ProximityPromptService:PromptTriggered(nearestPrompt)
+          Rayfield:Notify({Title = "Başarılı", Content = "'".. nearestPrompt.Parent.Name .."' kullanıldı!", Duration = 3})
+      else
+          Rayfield:Notify({Title = "Bulunamadı", Content = "Yakınlarda bir etkileşim yok.", Duration = 3})
+      end
+   end,
+})
+
+task.spawn(function()
+    while true do
+        if _G.AutoFarmEnabled then
+            local Players = game:GetService("Players")
+            local ProximityPromptService = game:GetService("ProximityPromptService")
+            local player = Players.LocalPlayer
+            local character = player.Character
+            if character and character:FindFirstChild("HumanoidRootPart") then
+                local rootPart, nearestPrompt, shortestDistance = character.HumanoidRootPart, nil, math.huge
+                for i,v in pairs(workspace:GetDescendants()) do
+                    if v:IsA("ProximityPrompt") and v.Enabled then
+                        local p = v.Parent
+                        if p:IsA("BasePart") then
+                            local d = (rootPart.Position - p.Position).Magnitude
+                            if d < shortestDistance and d <= v.MaxActivationDistance then
+                                shortestDistance = d; nearestPrompt = v
+                            end
+                        end
+                    end
+                end
+                if nearestPrompt then
+                    ProximityPromptService:PromptTriggered(nearestPrompt)
+                end
+            end
+        end
+        task.wait(0.25)
+    end
+end)
