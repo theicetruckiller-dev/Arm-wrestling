@@ -1,80 +1,64 @@
--- ================================================================= --
---         Tüm Fonksiyonlar - GÜNCEL KAVO ARAYÜZÜ İLE              --
--- ================================================================= --
+local OrionLib = loadstring(game:HttpGet('https://raw.githubusercontent.com/shlexware/Orion/main/source'))()
+local Window = OrionLib:MakeWindow({Name = "Mobil Kontrol Paneli", HidePremium = true, SaveConfig = true, ConfigFolder = "Orion_Config_ACW"})
 
-local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/xHeptc/Kavo-UI-Library/main/source.lua"))()
-local Window = Library.CreateLib("Gelişmiş Kontrol Paneli", "DarkTheme")
+local MainTab = Window:MakeTab({
+	Name = "Ana Kontroller",
+	Icon = "rbxassetid://4483345998",
+	PremiumOnly = false
+})
 
-local MainTab = Window:NewTab("Tüm Kontroller")
-local MainSection = MainTab:NewSection("Kontroller")
+_G.SpamWeightEvent = false
+_G.SpamProximity = false
 
-_G.AutoFarmEnabled = false
+MainTab:AddToggle({
+	Name = "Weight Event Spammer",
+	Callback = function(Value)
+        _G.SpamWeightEvent = Value
+        if Value then print("Weight Event Spammer: AÇIK") else print("Weight Event Spammer: KAPALI") end
+	end    
+})
 
-MainSection:NewToggle("Weight Sistemi", "Ağırlık sistemini açar veya kapatır.", function(Value)
-    game:GetService("ReplicatedStorage").WeightSystem:FireServer(Value)
-    if Value then print("Weight Sistemi: AÇIK") else print("Weight Sistemi: KAPALI") end
-end)
+MainTab:AddToggle({
+	Name = "Otomatik Toplama (Yakındakini Spamle)",
+	Callback = function(Value)
+        _G.SpamProximity = Value
+        if Value then print("Otomatik Toplama: AÇIK") else print("Otomatik Toplama: KAPALI") end
+	end    
+})
 
-MainSection:NewToggle("Otomatik Toplama (Spam)", "Açıldığında sürekli en yakın eşyayı toplar. Kapattığında durur.", function(Value)
-    _G.AutoFarmEnabled = Value
-    if Value then 
-        print("Otomatik Toplama Başlatıldı.")
-    else
-        print("Otomatik Toplama Durduruldu.")
-    end
-end)
-
-MainSection:NewButton("En Yakın Eşyayı Al (Tek Sefer)", "En yakındaki etkileşimi sadece bir kere tetikler.", function()
-    local Players = game:GetService("Players")
-    local ProximityPromptService = game:GetService("ProximityPromptService")
-    local player = Players.LocalPlayer
-    local character = player.Character
-    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
-    local rootPart, nearestPrompt, shortestDistance = character.HumanoidRootPart, nil, math.huge
-    for i,v in pairs(workspace:GetDescendants()) do
-        if v:IsA("ProximityPrompt") and v.Enabled then
-            local p = v.Parent
-            if p:IsA("BasePart") then
-                local d = (rootPart.Position - p.Position).Magnitude
-                if d < shortestDistance and d <= v.MaxActivationDistance then
-                    shortestDistance = d; nearestPrompt = v
-                end
-            end
-        end
-    end
-    if nearestPrompt then
-        ProximityPromptService:PromptTriggered(nearestPrompt)
-    else
-        print("Yakınlarda bir etkileşim yok.")
-    end
-end)
-
+-- Arka planda sürekli çalışacak olan spam döngüleri
 task.spawn(function()
     while true do
-        if _G.AutoFarmEnabled then
-            local Players = game:GetService("Players")
-            local ProximityPromptService = game:GetService("ProximityPromptService")
-            local player = Players.LocalPlayer
-            local character = player.Character
-            if character and character:FindFirstChild("HumanoidRootPart") then
-                local rootPart, nearestPrompt, shortestDistance = character.HumanoidRootPart, nil, math.huge
-                for i,v in pairs(workspace:GetDescendants()) do
-                    if v:IsA("ProximityPrompt") and v.Enabled then
-                        local p = v.Parent
-                        if p:IsA("BasePart") then
-                            local d = (rootPart.Position - p.Position).Magnitude
-                            if d < shortestDistance and d <= v.MaxActivationDistance then
-                                shortestDistance = d; nearestPrompt = v
+        if _G.SpamWeightEvent then
+            pcall(function()
+                game:GetService("ReplicatedStorage").WeightSystem:FireServer(true)
+            end)
+        end
+        if _G.SpamProximity then
+            pcall(function()
+                local player = game:GetService("Players").LocalPlayer
+                local character = player.Character
+                if character and character:FindFirstChild("HumanoidRootPart") then
+                    local rootPart, nearestPrompt, shortestDistance = character.HumanoidRootPart, nil, math.huge
+                    for i,v in pairs(workspace:GetDescendants()) do
+                        if v:IsA("ProximityPrompt") and v.Enabled then
+                            local p = v.Parent
+                            if p:IsA("BasePart") then
+                                local d = (rootPart.Position - p.Position).Magnitude
+                                if d < shortestDistance and d <= v.MaxActivationDistance then
+                                    shortestDistance = d; nearestPrompt = v
+                                end
                             end
                         end
                     end
+                    if nearestPrompt then
+                        game:GetService("ProximityPromptService"):PromptTriggered(nearestPrompt)
+                    end
                 end
-                if nearestPrompt then
-                    ProximityPromptService:PromptTriggered(nearestPrompt)
-                end
-            end
+            end)
         end
-        task.wait(0.25)
+        task.wait(0.1) -- Spam hızını buradan ayarlayabilirsin, daha küçük sayı daha hızlı spam demek.
     end
 end)
 
+OrionLib:Init()
